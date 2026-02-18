@@ -40,6 +40,11 @@ public class DealBuildingAggregator {
     private Decimal totalVillaArea = 0;
     private Decimal totalVillaSellableAreaSqm = 0;
     private Decimal totalPreLaunchPrice = 0;
+
+    //Cumulative fields (rebuild-based)
+    private Decimal totalLandAreaAtCreation = 0;
+    private Decimal totalLandPriceAtCreation = 0;
+    private Decimal totalBuildUpAreaAtCreation = 0;
     
     public DealBuildingAggregator(String recordTypeName) {
         this.recordTypeName = recordTypeName;
@@ -70,7 +75,6 @@ public class DealBuildingAggregator {
                 addResidentialPropertyFields(db);
             }
         }
-       
     }
     
     /**
@@ -100,7 +104,6 @@ public class DealBuildingAggregator {
                 applyResidentialPropertyFields(opp);
             }
         }
-       
     }
     
     // ========================================================================
@@ -152,6 +155,10 @@ public class DealBuildingAggregator {
         totalVillaSellableAreaSqm += nvl(db.VillaSellableAreaSqm__c);
         totalPreLaunchPrice += nvl(db.PreLaunchPrice__c);
         totalAskingPrice += nvl(db.Asking_Price__c);
+
+        totalLandAreaAtCreation += nvl(db.LandArea__c);
+        totalLandPriceAtCreation += nvl(db.LandSellableAmount__c);
+        totalBuildUpAreaAtCreation += nvl(db.VillaArea__c);
     }
     
     private void applyOfficeFields(Opportunity opp) {
@@ -194,7 +201,12 @@ public class DealBuildingAggregator {
         opp.LandSellableAmount__c = totalLandSellableAmount;
         opp.BuildUpArea__c = totalVillaArea;
         opp.PreLaunchPrice__c = totalPreLaunchPrice;
-        opp.Rate_per_Sqm_SR_Sqm__c =   totalVillaSellableAreaSqm ;
+        opp.Rate_per_Sqm_SR_Sqm__c = totalVillaSellableAreaSqm ;
+
+        //Cumulative values (rebuild-based)
+        opp.LandAreaAtCreation__c = totalLandAreaAtCreation;
+        opp.LandPriceAtCreation__c = totalLandPriceAtCreation;
+        opp.BuildUpAreaAtCreation__c = totalBuildUpAreaAtCreation;
     }
     
     private Decimal safeDivide(Decimal numerator, Decimal denominator) {
