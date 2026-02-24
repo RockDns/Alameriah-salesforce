@@ -35,16 +35,13 @@ public class DealBuildingAggregator {
     private Decimal totalAnnualRent = 0;
 
     //Residential property-specific fields
+    private Integer residentialPropertyCount = 0;
     private Decimal totalLandArea = 0;
     private Decimal totalLandSellableAmount = 0;
+    private Decimal totalLandSellableAreaSqm = 0;
     private Decimal totalVillaArea = 0;
     private Decimal totalVillaSellableAreaSqm = 0;
     private Decimal totalPreLaunchPrice = 0;
-
-    //Cumulative fields (rebuild-based)
-    private Decimal totalLandAreaAtCreation = 0;
-    private Decimal totalLandPriceAtCreation = 0;
-    private Decimal totalBuildUpAreaAtCreation = 0;
     
     public DealBuildingAggregator(String recordTypeName) {
         this.recordTypeName = recordTypeName;
@@ -148,17 +145,15 @@ public class DealBuildingAggregator {
     private void addResidentialPropertyFields(Deal_Building__c db) {
         // Amount for Residential Property = PreLaunchPrice__c
         totalAmountResidential += nvl(db.PreLaunchPrice__c);
-        
+
+        residentialPropertyCount++;
         totalLandArea += nvl(db.LandArea__c);
         totalLandSellableAmount += nvl(db.LandSellableAmount__c);
+        totalLandSellableAreaSqm += nvl(db.LandSellableAreaSqm__c);
         totalVillaArea += nvl(db.VillaArea__c);
         totalVillaSellableAreaSqm += nvl(db.VillaSellableAreaSqm__c);
         totalPreLaunchPrice += nvl(db.PreLaunchPrice__c);
         totalAskingPrice += nvl(db.Asking_Price__c);
-
-        totalLandAreaAtCreation += nvl(db.LandArea__c);
-        totalLandPriceAtCreation += nvl(db.LandSellableAmount__c);
-        totalBuildUpAreaAtCreation += nvl(db.VillaArea__c);
     }
     
     private void applyOfficeFields(Opportunity opp) {
@@ -201,12 +196,24 @@ public class DealBuildingAggregator {
         opp.LandSellableAmount__c = totalLandSellableAmount;
         opp.BuildUpArea__c = totalVillaArea;
         opp.PreLaunchPrice__c = totalPreLaunchPrice;
-        opp.Rate_per_Sqm_SR_Sqm__c = totalVillaSellableAreaSqm ;
+        // Average across all deal buildings (sum / count)
+        opp.Rate_per_Sqm_SR_Sqm__c = safeDivide(totalVillaSellableAreaSqm, residentialPropertyCount);
+        opp.LandPricePerSqm__c = safeDivide(totalLandSellableAreaSqm, residentialPropertyCount);
+    }
 
-        //Cumulative values (rebuild-based)
-        opp.LandAreaAtCreation__c = totalLandAreaAtCreation;
-        opp.LandPriceAtCreation__c = totalLandPriceAtCreation;
-        opp.BuildUpAreaAtCreation__c = totalBuildUpAreaAtCreation;
+    /**
+     * Sets the "at creation" snapshot fields on the Opportunity.
+     * Called only when a Deal_Building is inserted or deleted — never on plain edits.
+     */
+    public void applyAtCreationFields(Opportunity opp) {
+        if (recordTypeName == 'Residential Property') {
+            // Area fields = sum across all deal buildings
+            opp.LandAreaAtCreation__c = totalLandArea;
+            opp.BuildUpAreaAtCreation__c = totalVillaArea;
+            // Price/rate fields = average across all deal buildings (sum / count)
+            opp.LandPriceAtCreation__c = safeDivide(totalLandSellableAreaSqm, residentialPropertyCount);
+            opp.RatePerSqmSRSqmAtCreation__c = safeDivide(totalVillaSellableAreaSqm, residentialPropertyCount);
+        }
     }
     
     private Decimal safeDivide(Decimal numerator, Decimal denominator) {
